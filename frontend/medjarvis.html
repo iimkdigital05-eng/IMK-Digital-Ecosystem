@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedJarvis — Assistant médical IA</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #7d8590; --accent: #1a6b4a;
+    --accent-light: #2ea86a; --tag-bg: #1a2a22;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Space Grotesk', sans-serif; min-height: 100vh; }
+
+  .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800;
+    color: var(--accent-light); padding: 8px 12px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .logo-dot { width: 8px; height: 8px; background: var(--accent-light); border-radius: 50%; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px; cursor: pointer;
+    font-size: 14px; font-weight: 500; color: var(--muted);
+    border: none; background: none; width: 100%; text-align: left;
+    transition: background 0.15s, color 0.15s;
+  }
+  .nav-item:hover { background: rgba(46,168,106,0.08); color: var(--text); }
+  .nav-item.active { background: rgba(46,168,106,0.12); color: var(--accent-light); }
+  .nav-icon { font-size: 16px; }
+
+  /* MAIN */
+  .main { padding: 32px; overflow-y: auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* PAGE HEADER */
+  .page-header { margin-bottom: 32px; }
+  .page-header h1 { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; margin-bottom: 6px; }
+  .page-header p { color: var(--muted); font-size: 14px; }
+
+  /* CARDS GRID */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px; cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .card:hover { border-color: var(--accent-light); transform: translateY(-2px); }
+  .card-icon { font-size: 28px; margin-bottom: 12px; }
+  .card h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .card p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .card-tag {
+    display: inline-block; margin-top: 12px; font-size: 11px; font-weight: 500;
+    padding: 3px 8px; border-radius: 4px; background: var(--tag-bg); color: var(--accent-light);
+  }
+
+  /* FORM */
+  .form-group { margin-bottom: 20px; }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 8px; }
+  select, textarea, input {
+    width: 100%; padding: 10px 14px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-family: 'Space Grotesk', sans-serif; font-size: 14px;
+    outline: none; transition: border-color 0.15s;
+  }
+  select:focus, textarea:focus, input:focus { border-color: var(--accent-light); }
+  textarea { resize: vertical; min-height: 100px; line-height: 1.5; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; background: var(--accent); color: #fff;
+    border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .btn:hover { background: var(--accent-light); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* RESULT */
+  .result-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; margin-top: 24px;
+    white-space: pre-wrap; font-size: 14px; line-height: 1.7;
+    display: none; min-height: 120px;
+  }
+  .result-box.visible { display: block; }
+  .result-box.loading { color: var(--muted); font-style: italic; }
+
+  /* QCM */
+  .qcm-options { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+  .qcm-option {
+    padding: 12px 16px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer; font-size: 14px; transition: border-color 0.15s;
+    text-align: left; color: var(--text); font-family: 'Space Grotesk', sans-serif;
+  }
+  .qcm-option:hover { border-color: var(--accent-light); }
+  .qcm-option.correct { border-color: #2ea86a; background: rgba(46,168,106,0.1); }
+  .qcm-option.wrong { border-color: #f85149; background: rgba(248,81,73,0.1); }
+
+  .score-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 600; padding: 6px 14px;
+    background: var(--tag-bg); border-radius: 999px; color: var(--accent-light);
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 640px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { display: flex; flex-direction: row; padding: 12px; overflow-x: auto; }
+    .logo { display: none; }
+    .nav-item span:not(.nav-icon) { display: none; }
+    .main { padding: 20px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="logo"><span class="logo-dot"></span> MedJarvis</div>
+
+    <button class="nav-item active" onclick="showPage('accueil', this)">
+      <span class="nav-icon">🏠</span><span>Accueil</span>
+    </button>
+    <button class="nav-item" onclick="showPage('fiches', this)">
+      <span class="nav-icon">📋</span><span>Fiches</span>
+    </button>
+    <button class="nav-item" onclick="showPage('qcm', this)">
+      <span class="nav-icon">✏️</span><span>QCM</span>
+    </button>
+    <button class="nav-item" onclick="showPage('resume', this)">
+      <span class="nav-icon">📄</span><span>Résumé</span>
+    </button>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ACCUEIL -->
+    <div id="page-accueil" class="page active">
+      <div class="page-header">
+        <h1>Bonjour, Moubarak 👋</h1>
+        <p>Que veux-tu réviser aujourd'hui ?</p>
+      </div>
+      <div class="cards">
+        <div class="card" onclick="showPage('fiches', document.querySelector('[onclick*=fiches]'))">
+          <div class="card-icon">📋</div>
+          <h3>Générer une fiche</h3>
+          <p>Crée une fiche de révision structurée sur n'importe quel sujet médical.</p>
+          <span class="card-tag">Fiches</span>
+        </div>
+        <div class="card" onclick="showPage('qcm', document.querySelector('[onclick*=qcm]'))">
+          <div class="card-icon">✏️</div>
+          <h3>Faire un QCM</h3>
+          <p>Génère des questions à choix multiple avec correction expliquée.</p>
+          <span class="card-tag">QCM</span>
+        </div>
+        <div class="card" onclick="showPage('resume', document.querySelector('[onclick*=resume]'))">
+          <div class="card-icon">📄</div>
+          <h3>Résumer un cours</h3>
+          <p>Colle ton cours et obtiens un résumé structuré en bullet points.</p>
+          <span class="card-tag">Résumé</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- FICHES -->
+    <div id="page-fiches" class="page">
+      <div class="page-header">
+        <h1>Générer une fiche</h1>
+        <p>Remplis les champs et MedJarvis génère ta fiche de révision.</p>
+      </div>
+      <div class="form-group">
+        <label>Sujet médical</label>
+        <input type="text" id="fiche-sujet" placeholder="Ex : Insuffisance cardiaque, Diabète de type 2...">
+      </div>
+      <div class="form-group">
+        <label>Niveau</label>
+        <select id="fiche-niveau">
+          <option value="DCEM1">DCEM1 (3ème année)</option>
+          <option value="DCEM2" selected>DCEM2 (4ème année)</option>
+          <option value="DCEM3">DCEM3 (5ème année)</option>
+          <option value="internat">Préparation internat</option>
+        </select>
+      </div>
+      <button class="btn" id="btn-fiche" onclick="genererFiche()">
+        <span>⚡</span> Générer la fiche
+      </button>
+      <div id="result-fiche" class="result-box"></div>
+    </div>
+
+    <!-- QCM -->
+    <div id="page-qcm" class="page">
+      <div class="page-header">
+        <h1>Générer un QCM</h1>
+        <p>Teste tes connaissances avec des questions générées par IA.</p>
+      </div>
+      <div class="form-group">
+        <label>Sujet</label>
+        <input type="text" id="qcm-sujet" placeholder="Ex : Physiologie rénale, Antibiotiques...">
+      </div>
+      <div class="form-group">
+        <label>Nombre de questions</label>
+        <select id="qcm-nb">
+          <option value="3">3 questions</option>
+          <option value="5" selected>5 questions</option>
+          <option value="10">10 questions</option>
+        </select>
+      </div>
+      <button class="btn" id="btn-qcm" onclick="genererQCM()">
+        <span>⚡</span> Générer le QCM
+      </button>
+      <div id="qcm-container" style="margin-top:24px;display:none;"></div>
+    </div>
+
+    <!-- RESUME -->
+    <div id="page-resume" class="page">
+      <div class="page-header">
+        <h1>Résumer un cours</h1>
+        <p>Colle le texte de ton cours pour obtenir un résumé structuré.</p>
+      </div>
+      <div class="form-group">
+        <label>Texte du cours</label>
+        <textarea id="resume-texte" placeholder="Colle ici le contenu de ton cours..."></textarea>
+      </div>
+      <button class="btn" id="btn-resume" onclick="genererResume()">
+        <span>⚡</span> Résumer
+      </button>
+      <div id="result-resume" class="result-box"></div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+async function callClaude(prompt) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+  const data = await res.json();
+  return data.content?.[0]?.text || "Erreur de génération.";
+}
+
+async function genererFiche() {
+  const sujet = document.getElementById('fiche-sujet').value.trim();
+  const niveau = document.getElementById('fiche-niveau').value;
+  if (!sujet) return alert('Entre un sujet médical.');
+  const btn = document.getElementById('btn-fiche');
+  const box = document.getElementById('result-fiche');
+  btn.disabled = true;
+  box.className = 'result-box visible loading';
+  box.textContent = 'Génération de la fiche en cours...';
+  const prompt = `Tu es un assistant médical pour étudiants en médecine francophones niveau ${niveau}.
+Génère une fiche de révision structurée et complète sur : ${sujet}
+
+Format :
+## Définition
+## Physiopathologie
+## Signes cliniques
+## Examens complémentaires
+## Traitement
+## Points clés à retenir
+
+Sois précis, concis et pédagogique.`;
+  const result = await callClaude(prompt);
+  box.className = 'result-box visible';
+  box.textContent = result;
+  btn.disabled = false;
+}
+
+async function genererQCM() {
+  const sujet = document.getElementById('qcm-sujet').value.trim();
+  const nb = document.getElementById('qcm-nb').value;
+  if (!sujet) return alert('Entre un sujet.');
+  const btn = document.getElementById('btn-qcm');
+  const container = document.getElementById('qcm-container');
+  btn.disabled = true;
+  container.style.display = 'block';
+  container.innerHTML = '<p style="color:var(--muted);font-style:italic">Génération du QCM...</p>';
+  const prompt = `Génère ${nb} QCM de médecine sur : ${sujet}
+
+Réponds UNIQUEMENT en JSON valide, sans texte avant ni après :
+[{"question":"...","options":["A) ...","B) ...","C) ...","D) ..."],"correct":0,"explication":"..."}]
+
+correct = index (0-3) de la bonne réponse.`;
+  const raw = await callClaude(prompt);
+  btn.disabled = false;
+  let questions;
+  try {
+    const clean = raw.replace(/```json|```/g, '').trim();
+    questions = JSON.parse(clean);
+  } catch(e) {
+    container.innerHTML = '<p style="color:#f85149">Erreur de format. Réessaie.</p>';
+    return;
+  }
+  let score = 0; let answered = 0;
+  container.innerHTML = '';
+  const scoreEl = document.createElement('div');
+  scoreEl.className = 'score-badge';
+  scoreEl.innerHTML = `<span>🎯</span> Score : <span id="score-val">0</span>/${questions.length}`;
+  container.appendChild(scoreEl);
+  questions.forEach((q, i) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'margin-bottom:24px;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;';
+    div.innerHTML = `<p style="font-weight:600;margin-bottom:12px">${i+1}. ${q.question}</p>
+    <div class="qcm-options" id="opts-${i}">
+      ${q.options.map((o,j) => `<button class="qcm-option" onclick="checkAnswer(${i},${j},${q.correct},'${q.explication.replace(/'/g,"\'")}')">
+        ${o}</button>`).join('')}
+    </div>
+    <div id="expl-${i}" style="display:none;margin-top:12px;padding:12px;background:rgba(46,168,106,0.08);border-radius:8px;font-size:13px;color:var(--muted)"></div>`;
+    container.appendChild(div);
+  });
+  window._qcmState = { score:0, answered:0, total:questions.length };
+}
+
+function checkAnswer(qi, chosen, correct, expl) {
+  const opts = document.querySelectorAll(`#opts-${qi} .qcm-option`);
+  opts.forEach(o => o.disabled = true);
+  opts[correct].classList.add('correct');
+  if (chosen !== correct) opts[chosen].classList.add('wrong');
+  else {
+    window._qcmState.score++;
+    document.getElementById('score-val').textContent = window._qcmState.score;
+  }
+  const explEl = document.getElementById(`expl-${qi}`);
+  explEl.textContent = '💡 ' + expl;
+  explEl.style.display = 'block';
+}
+
+async function genererResume() {
+  const texte = document.getElementById('resume-texte').value.trim();
+  if (!texte) return alert('Colle ton cours.');
+  const btn = document.getElementById('btn-resume');
+  const box = document.getElementById('result-resume');
+  btn.disabled = true;
+  box.className = 'result-box visible loading';
+  box.textContent = 'Résumé en cours...';
+  const prompt = `Tu es un assistant médical. Résume ce cours de médecine de façon structurée et pédagogique pour un étudiant francophone.
+Format : bullet points, sections claires, points clés mis en évidence.
+
+COURS :
+${texte.substring(0, 3000)}`;
+  const result = await callClaude(prompt);
+  box.className = 'result-box visible';
+  box.textContent = result;
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
