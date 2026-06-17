@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartCold — Gestion intelligente de conservateur médical</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --bg:#0a0f0d;
+  --surface:#111a15;
+  --surface2:#162018;
+  --border:#1e2e22;
+  --border2:#253329;
+  --text:#e8f0ea;
+  --muted:#5a7a62;
+  --muted2:#3a5040;
+  --green:#00e676;
+  --green-dim:#00c853;
+  --yellow:#ffd600;
+  --red:#ff1744;
+  --red-dim:#c62828;
+  --blue:#40c4ff;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'Inter',sans-serif;
+}
+
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh}
+
+/* LAYOUT */
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+@media(max-width:700px){.app{grid-template-columns:1fr;grid-template-rows:auto 1fr}}
+
+/* SIDEBAR */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+@media(max-width:700px){.sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);padding:12px 0;flex-direction:row;overflow-x:auto;overflow-y:hidden}}
+
+.logo{padding:0 20px 24px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.logo-mark{font-family:var(--mono);font-size:15px;font-weight:500;color:var(--green);letter-spacing:-0.02em}
+.logo-sub{font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-top:2px}
+@media(max-width:700px){.logo{display:none}}
+
+.nav{display:flex;flex-direction:column;gap:2px;padding:0 8px;flex:1}
+@media(max-width:700px){.nav{flex-direction:row;padding:0 8px;gap:4px}}
+
+.nav-btn{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:6px;border:none;background:none;color:var(--muted);font-family:var(--sans);font-size:13px;cursor:pointer;text-align:left;width:100%;transition:background 0.12s,color 0.12s;white-space:nowrap}
+.nav-btn:hover{background:var(--surface2);color:var(--text)}
+.nav-btn.active{background:rgba(0,230,118,0.08);color:var(--green)}
+.nav-btn .icon{font-size:15px;min-width:18px;text-align:center}
+@media(max-width:700px){.nav-btn span:not(.icon){display:none}}
+
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border);margin-top:auto}
+.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+.status-line{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:7px}
+@media(max-width:700px){.sidebar-footer{display:none}}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* MAIN */
+.main{overflow-y:auto;padding:24px}
+@media(max-width:700px){.main{padding:16px}}
+
+.page{display:none}
+.page.active{display:block}
+
+/* HEADER */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:12px;flex-wrap:wrap}
+.page-title{font-family:var(--mono);font-size:18px;font-weight:500;color:var(--text)}
+.page-subtitle{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;padding:4px 10px;border-radius:999px;font-family:var(--mono)}
+.badge-ok{background:rgba(0,230,118,0.1);color:var(--green);border:1px solid rgba(0,230,118,0.2)}
+.badge-warn{background:rgba(255,214,0,0.1);color:var(--yellow);border:1px solid rgba(255,214,0,0.2)}
+.badge-crit{background:rgba(255,23,68,0.1);color:var(--red);border:1px solid rgba(255,23,68,0.2)}
+
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
+.kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px}
+.kpi-val{font-family:var(--mono);font-size:26px;font-weight:500}
+.kpi-val.ok{color:var(--green)}
+.kpi-val.warn{color:var(--yellow)}
+.kpi-val.crit{color:var(--red)}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:4px}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
+.card-title{font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:16px}
+
+/* CONSERVATEURS */
+.conserv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:24px}
+.conserv-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;cursor:pointer;transition:border-color 0.15s}
+.conserv-card:hover{border-color:var(--border2)}
+.conserv-card.alert-warn{border-color:rgba(255,214,0,0.4)}
+.conserv-card.alert-crit{border-color:rgba(255,23,68,0.4);animation:blink-border 1.5s infinite}
+
+@keyframes blink-border{0%,100%{border-color:rgba(255,23,68,0.4)}50%{border-color:rgba(255,23,68,0.9)}}
+
+.conserv-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.conserv-name{font-weight:500;font-size:14px}
+.conserv-loc{font-size:11px;color:var(--muted);margin-top:2px}
+
+.temp-display{display:flex;align-items:baseline;gap:6px;margin-bottom:12px}
+.temp-big{font-family:var(--mono);font-size:36px;font-weight:500}
+.temp-unit{font-family:var(--mono);font-size:16px;color:var(--muted)}
+
+.temp-bar-wrap{background:var(--surface2);border-radius:4px;height:6px;margin-bottom:12px;position:relative}
+.temp-bar{height:6px;border-radius:4px;transition:width 0.5s ease}
+.temp-limits{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:var(--mono)}
+
+.conserv-meta{display:flex;gap:12px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:12px;margin-top:4px;flex-wrap:wrap}
+.conserv-meta span{display:flex;align-items:center;gap:4px}
+
+/* CHART */
+.chart-wrap{position:relative;height:200px;margin-top:8px}
+
+/* ALERTES */
+.alert-list{display:flex;flex-direction:column;gap:8px}
+.alert-item{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:8px;border:1px solid}
+.alert-item.warn{background:rgba(255,214,0,0.05);border-color:rgba(255,214,0,0.2)}
+.alert-item.crit{background:rgba(255,23,68,0.05);border-color:rgba(255,23,68,0.2)}
+.alert-item.info{background:rgba(64,196,255,0.05);border-color:rgba(64,196,255,0.2)}
+.alert-icon{font-size:16px;margin-top:1px}
+.alert-body{flex:1}
+.alert-title{font-weight:500;font-size:13px}
+.alert-meta{font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+.alert-empty{text-align:center;padding:40px;color:var(--muted);font-size:13px}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);border-bottom:1px solid var(--border);font-weight:500}
+td{padding:10px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+
+/* SETTINGS */
+.settings-section{margin-bottom:24px}
+.settings-title{font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);gap:16px}
+.setting-row:last-child{border-bottom:none}
+.setting-info label{font-size:13px;font-weight:500;display:block;margin-bottom:2px}
+.setting-info p{font-size:11px;color:var(--muted)}
+input[type=number],input[type=text],select{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 10px;width:100px;outline:none}
+input[type=number]:focus,input[type=text]:focus,select:focus{border-color:var(--green)}
+.toggle{width:36px;height:20px;background:var(--border2);border-radius:999px;position:relative;cursor:pointer;transition:background 0.2s;border:none;flex-shrink:0}
+.toggle.on{background:var(--green-dim)}
+.toggle::after{content:'';position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:3px;left:3px;transition:transform 0.2s}
+.toggle.on::after{transform:translateX(16px)}
+.btn-primary{background:rgba(0,230,118,0.12);color:var(--green);border:1px solid rgba(0,230,118,0.3);border-radius:6px;padding:8px 16px;font-size:12px;font-family:var(--mono);cursor:pointer;transition:background 0.15s}
+.btn-primary:hover{background:rgba(0,230,118,0.2)}
+
+/* LIVE INDICATOR */
+.live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 4px var(--green);animation:pulse 1.5s infinite;margin-right:4px}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">❄ SmartCold</div>
+    <div class="logo-sub">IIMk DIGITAL · v0.1</div>
+  </div>
+  <div class="nav">
+    <button class="nav-btn active" onclick="showPage('dashboard',this)"><span class="icon">◈</span><span>Dashboard</span></button>
+    <button class="nav-btn" onclick="showPage('conservateurs',this)"><span class="icon">▣</span><span>Conservateurs</span></button>
+    <button class="nav-btn" onclick="showPage('alertes',this)"><span class="icon">◉</span><span>Alertes <span id="alert-count-badge" style="font-size:10px;background:rgba(255,23,68,0.2);color:var(--red);padding:1px 5px;border-radius:4px;margin-left:2px">0</span></span></button>
+    <button class="nav-btn" onclick="showPage('historique',this)"><span class="icon">▤</span><span>Historique</span></button>
+    <button class="nav-btn" onclick="showPage('stats',this)"><span class="icon">◑</span><span>Statistiques</span></button>
+    <button class="nav-btn" onclick="showPage('settings',this)"><span class="icon">◎</span><span>Paramètres</span></button>
+  </div>
+  <div class="sidebar-footer">
+    <div class="status-line"><span class="status-dot"></span> Simulation active</div>
+    <div class="status-line" style="margin-top:6px;font-size:10px">Ibrahima · IIMk DIGITAL</div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard" class="page active">
+    <div class="page-header">
+      <div><div class="page-title">Dashboard</div><div class="page-subtitle"><span class="live-dot"></span>Mise à jour en temps réel</div></div>
+      <span id="dash-global-status" class="badge badge-ok">Tous normaux</span>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Conservateurs actifs</div><div class="kpi-val ok" id="kpi-actifs">3</div><div class="kpi-sub">Sur 3 enregistrés</div></div>
+      <div class="kpi"><div class="kpi-label">Alertes actives</div><div class="kpi-val" id="kpi-alertes" style="color:var(--muted)">0</div><div class="kpi-sub">Dernière vérif. maintenant</div></div>
+      <div class="kpi"><div class="kpi-label">Temp. moy. actuelle</div><div class="kpi-val ok" id="kpi-temp-moy">—°C</div><div class="kpi-sub">Tous conservateurs</div></div>
+      <div class="kpi"><div class="kpi-label">Uptime</div><div class="kpi-val ok">99.8%</div><div class="kpi-sub">Dernières 24h</div></div>
+    </div>
+
+    <div class="conserv-grid" id="dash-conserv-grid"></div>
+
+    <div class="card">
+      <div class="card-title">Température — 30 dernières minutes</div>
+      <div class="chart-wrap"><canvas id="chart-dash" role="img" aria-label="Températures des 3 conservateurs sur 30 minutes"></canvas></div>
+    </div>
+  </div>
+
+  <!-- CONSERVATEURS -->
+  <div id="page-conservateurs" class="page">
+    <div class="page-header">
+      <div><div class="page-title">Conservateurs</div><div class="page-subtitle">Gestion et configuration</div></div>
+    </div>
+    <div class="conserv-grid" id="full-conserv-grid"></div>
+  </div>
+
+  <!-- ALERTES -->
+  <div id="page-alertes" class="page">
+    <div class="page-header">
+      <div><div class="page-title">Alertes</div><div class="page-subtitle">Historique des événements</div></div>
+      <button class="btn-primary" onclick="clearAlerts()">Tout acquitter</button>
+    </div>
+    <div class="card">
+      <div class="alert-list" id="alert-list">
+        <div class="alert-empty">Aucune alerte active</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORIQUE -->
+  <div id="page-historique" class="page">
+    <div class="page-header">
+      <div><div class="page-title">Historique</div><div class="page-subtitle">Journal des relevés</div></div>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Heure</th><th>Conservateur</th><th>Temp.</th><th>Statut</th><th>Min</th><th>Max</th></tr></thead>
+        <tbody id="history-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div id="page-stats" class="page">
+    <div class="page-header">
+      <div><div class="page-title">Statistiques</div><div class="page-subtitle">Analyse des données</div></div>
+    </div>
+    <div class="stats-grid">
+      <div class="card">
+        <div class="card-title">Distribution des températures — C1</div>
+        <div class="chart-wrap"><canvas id="chart-dist1" role="img" aria-label="Distribution températures conservateur 1"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Distribution des températures — C2</div>
+        <div class="chart-wrap"><canvas id="chart-dist2" role="img" aria-label="Distribution températures conservateur 2"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Récapitulatif par conservateur</div>
+      <table>
+        <thead><tr><th>Conservateur</th><th>Temp. actuelle</th><th>Min (session)</th><th>Max (session)</th><th>Alertes</th><th>Statut</th></tr></thead>
+        <tbody id="stats-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="page-settings" class="page">
+    <div class="page-header">
+      <div><div class="page-title">Paramètres</div><div class="page-subtitle">Configuration des seuils et alertes</div></div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-title">Seuils de température</div>
+      <div class="setting-row"><div class="setting-info"><label>Température minimale</label><p>Alerte si la température descend en dessous</p></div><input type="number" id="set-min" value="2" min="-30" max="20"> °C</div>
+      <div class="setting-row"><div class="setting-info"><label>Température maximale</label><p>Alerte si la température dépasse ce seuil</p></div><input type="number" id="set-max" value="8" min="-10" max="50"> °C</div>
+      <div class="setting-row"><div class="setting-info"><label>Seuil critique</label><p>Alerte critique si dépassement de N degrés</p></div><input type="number" id="set-crit" value="2" min="0" max="10"> °C</div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-title">Notifications</div>
+      <div class="setting-row"><div class="setting-info"><label>Alertes sonores</label><p>Signal sonore en cas d'alerte critique</p></div><button class="toggle on" id="tog-sound" onclick="this.classList.toggle('on')"></button></div>
+      <div class="setting-row"><div class="setting-info"><label>Simulation active</label><p>Données générées automatiquement (prototype)</p></div><button class="toggle on" id="tog-sim" onclick="toggleSim(this)"></button></div>
+      <div class="setting-row"><div class="setting-info"><label>Intervalle de mesure</label><p>Fréquence de relevé simulé</p></div><select id="set-interval"><option value="3000">3 secondes</option><option value="5000" selected>5 secondes</option><option value="10000">10 secondes</option></select></div>
+    </div>
+    <button class="btn-primary" onclick="applySettings()">Appliquer les paramètres</button>
+  </div>
+
+</main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const CONSERVATEURS = [
+  {id:'C1', name:'Conservateur Salle A', loc:'Bloc chirurgical', minT:2, maxT:8, color:'#00e676'},
+  {id:'C2', name:'Vaccins Pédiatrie', loc:'Service pédiatrie', minT:2, maxT:8, color:'#40c4ff'},
+  {id:'C3', name:'Médicaments Urgences', loc:'Urgences', minT:15, maxT:25, color:'#ffd600'},
+];
+
+let temps = {C1:4.2, C2:5.8, C3:19.5};
+let histories = {C1:[], C2:[], C3:[]};
+let alerts = [];
+let sessionMin = {C1:999,C2:999,C3:999};
+let sessionMax = {C1:-999,C2:-999,C3:-999};
+let alertCounts = {C1:0,C2:0,C3:0};
+let simActive = true;
+let simInterval = null;
+let settings = {min:2, max:8, crit:2};
+let timeLabels = [];
+let dashChart = null, dist1Chart = null, dist2Chart = null;
+let historyLog = [];
+
+function randDelta(){return (Math.random()-0.48)*0.3}
+
+function getStatus(id){
+  const t = temps[id];
+  const c = CONSERVATEURS.find(x=>x.id===id);
+  const over = Math.max(0, t-c.maxT, c.minT-t);
+  if(over > settings.crit) return 'crit';
+  if(t > c.maxT || t < c.minT) return 'warn';
+  return 'ok';
+}
+
+function statusLabel(s){return s==='ok'?'Normal':s==='warn'?'Attention':'CRITIQUE'}
+function statusColor(s){return s==='ok'?'var(--green)':s==='warn'?'var(--yellow)':'var(--red)'}
+
+function tempBarWidth(id){
+  const c = CONSERVATEURS.find(x=>x.id===id);
+  const range = c.maxT - c.minT + 6;
+  const pct = ((temps[id] - (c.minT-3)) / range)*100;
+  return Math.max(2, Math.min(100, pct));
+}
+
+function tempBarColor(id){
+  const s = getStatus(id);
+  return s==='ok'?'var(--green)':s==='warn'?'var(--yellow)':'var(--red)';
+}
+
+function buildConservCard(c, mini=false){
+  const id = c.id;
+  const t = temps[id];
+  const s = getStatus(id);
+  const badgeClass = s==='ok'?'badge-ok':s==='warn'?'badge-warn':'badge-crit';
+  const cardClass = s==='ok'?'':'alert-'+s;
+  return `<div class="conserv-card ${cardClass}" onclick="showPage('conservateurs',document.querySelector('[onclick*=conservateurs]'))">
+    <div class="conserv-header">
+      <div><div class="conserv-name">${c.name}</div><div class="conserv-loc">${c.loc}</div></div>
+      <span class="badge ${badgeClass}">${statusLabel(s)}</span>
+    </div>
+    <div class="temp-display">
+      <span class="temp-big" style="color:${statusColor(s)}" id="temp-${id}-${mini?'mini':'full'}">${t.toFixed(1)}</span>
+      <span class="temp-unit">°C</span>
+    </div>
+    <div class="temp-bar-wrap">
+      <div class="temp-bar" id="bar-${id}-${mini?'mini':'full'}" style="width:${tempBarWidth(id)}%;background:${tempBarColor(id)}"></div>
+    </div>
+    <div class="temp-limits"><span>${c.minT}°C min</span><span>Plage: ${c.minT}–${c.maxT}°C</span><span>${c.maxT}°C max</span></div>
+    <div class="conserv-meta">
+      <span>↓ ${sessionMin[id]===999?t.toFixed(1):sessionMin[id].toFixed(1)}°C</span>
+      <span>↑ ${sessionMax[id]===-999?t.toFixed(1):sessionMax[id].toFixed(1)}°C</span>
+      <span>⚑ ${alertCounts[id]} alertes</span>
+    </div>
+  </div>`;
+}
+
+function renderGrids(){
+  const dg = document.getElementById('dash-conserv-grid');
+  const fg = document.getElementById('full-conserv-grid');
+  if(dg) dg.innerHTML = CONSERVATEURS.map(c=>buildConservCard(c,true)).join('');
+  if(fg) fg.innerHTML = CONSERVATEURS.map(c=>buildConservCard(c,false)).join('');
+}
+
+function renderKPIs(){
+  const activeAlerts = alerts.filter(a=>!a.ack).length;
+  const avgTemp = (Object.values(temps).reduce((a,b)=>a+b,0)/3).toFixed(1);
+  const statuses = CONSERVATEURS.map(c=>getStatus(c.id));
+  const hasCrit = statuses.includes('crit');
+  const hasWarn = statuses.includes('warn');
+
+  document.getElementById('kpi-alertes').textContent = activeAlerts;
+  document.getElementById('kpi-alertes').className = 'kpi-val '+(activeAlerts>0?hasCrit?'crit':'warn':'ok');
+  document.getElementById('kpi-temp-moy').textContent = avgTemp+'°C';
+  document.getElementById('alert-count-badge').textContent = activeAlerts;
+  document.getElementById('alert-count-badge').style.display = activeAlerts>0?'':'none';
+
+  const gs = document.getElementById('dash-global-status');
+  if(hasCrit){gs.className='badge badge-crit';gs.textContent='Alerte critique'}
+  else if(hasWarn){gs.className='badge badge-warn';gs.textContent='Attention requise'}
+  else{gs.className='badge badge-ok';gs.textContent='Tous normaux'}
+}
+
+function renderAlerts(){
+  const al = document.getElementById('alert-list');
+  const active = alerts.filter(a=>!a.ack).slice(-20).reverse();
+  if(active.length===0){al.innerHTML='<div class="alert-empty">✓ Aucune alerte active</div>';return;}
+  al.innerHTML = active.map(a=>`
+    <div class="alert-item ${a.level}">
+      <div class="alert-icon">${a.level==='crit'?'⬥':a.level==='warn'?'◈':'◉'}</div>
+      <div class="alert-body">
+        <div class="alert-title">${a.msg}</div>
+        <div class="alert-meta">${a.conserv} · ${a.time}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderHistory(){
+  const tbody = document.getElementById('history-body');
+  if(!tbody) return;
+  const rows = historyLog.slice(-50).reverse();
+  tbody.innerHTML = rows.map(r=>`
+    <tr>
+      <td>${r.time}</td>
+      <td>${r.conserv}</td>
+      <td style="color:${statusColor(r.status)}">${r.temp}°C</td>
+      <td><span class="badge ${r.status==='ok'?'badge-ok':r.status==='warn'?'badge-warn':'badge-crit'}" style="font-size:10px">${statusLabel(r.status)}</span></td>
+      <td>${r.min}°C</td>
+      <td>${r.max}°C</td>
+    </tr>`).join('');
+}
+
+function renderStatsTable(){
+  const tbody = document.getElementById('stats-body');
+  if(!tbody) return;
+  tbody.innerHTML = CONSERVATEURS.map(c=>{
+    const id = c.id;
+    const s = getStatus(id);
+    return `<tr>
+      <td>${c.name}</td>
+      <td style="color:${statusColor(s)}">${temps[id].toFixed(1)}°C</td>
+      <td>${sessionMin[id]===999?'—':sessionMin[id].toFixed(1)+'°C'}</td>
+      <td>${sessionMax[id]===-999?'—':sessionMax[id].toFixed(1)+'°C'}</td>
+      <td>${alertCounts[id]}</td>
+      <td><span class="badge ${s==='ok'?'badge-ok':s==='warn'?'badge-warn':'badge-crit'}" style="font-size:10px">${statusLabel(s)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function initDashChart(){
+  const ctx = document.getElementById('chart-dash');
+  if(!ctx||dashChart) return;
+  dashChart = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:timeLabels,
+      datasets: CONSERVATEURS.map(c=>({
+        label:c.id,
+        data:histories[c.id].map(h=>h.t),
+        borderColor:c.color,
+        backgroundColor:'transparent',
+        borderWidth:1.5,
+        pointRadius:0,
+        tension:0.4,
+      }))
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:0},
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'rgba(90,122,98,0.7)',font:{size:10,family:"'IBM Plex Mono'"},maxTicksLimit:8},grid:{color:'rgba(30,46,34,0.8)'}},
+        y:{ticks:{color:'rgba(90,122,98,0.7)',font:{size:10,family:"'IBM Plex Mono'"},callback:v=>v+'°'},grid:{color:'rgba(30,46,34,0.8)'}}
+      }
+    }
+  });
+}
+
+function initDistCharts(){
+  ['chart-dist1','chart-dist2'].forEach((id,i)=>{
+    const ctx = document.getElementById(id);
+    if(!ctx) return;
+    const cid = CONSERVATEURS[i].id;
+    const data = histories[cid].map(h=>h.t);
+    if(data.length<2) return;
+    const min = Math.min(...data)-0.5;
+    const max = Math.max(...data)+0.5;
+    const bins = 10;
+    const step = (max-min)/bins;
+    const counts = Array(bins).fill(0);
+    const labels = [];
+    for(let b=0;b<bins;b++){labels.push((min+b*step).toFixed(1)+'°');}
+    data.forEach(v=>{
+      const b = Math.min(bins-1,Math.floor((v-min)/step));
+      counts[b]++;
+    });
+    if(document.getElementById(id).__chart) document.getElementById(id).__chart.destroy();
+    const ch = new Chart(ctx,{
+      type:'bar',
+      data:{labels,datasets:[{data:counts,backgroundColor:CONSERVATEURS[i].color+'44',borderColor:CONSERVATEURS[i].color,borderWidth:1,borderRadius:3,label:'Relevés'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'rgba(90,122,98,0.7)',font:{size:10}},grid:{display:false}},y:{ticks:{color:'rgba(90,122,98,0.7)',font:{size:10}},grid:{color:'rgba(30,46,34,0.8)'},beginAtZero:true}}}
+    });
+    document.getElementById(id).__chart = ch;
+  });
+}
+
+function updateDashChart(){
+  if(!dashChart) return;
+  dashChart.data.labels = timeLabels.slice(-30);
+  CONSERVATEURS.forEach((c,i)=>{
+    dashChart.data.datasets[i].data = histories[c.id].slice(-30).map(h=>h.t);
+  });
+  dashChart.update();
+}
+
+function tick(){
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  CONSERVATEURS.forEach(c=>{
+    const id = c.id;
+    let newT = temps[id] + randDelta();
+    if(Math.random()<0.03) newT += (Math.random()>0.5?1:-1)*2.5;
+    newT = Math.round(newT*10)/10;
+    temps[id] = newT;
+
+    sessionMin[id] = Math.min(sessionMin[id], newT);
+    sessionMax[id] = Math.max(sessionMax[id], newT);
+
+    histories[id].push({t:newT, time:timeStr});
+    if(histories[id].length>100) histories[id].shift();
+
+    const s = getStatus(id);
+    historyLog.push({time:timeStr, conserv:c.name, temp:newT.toFixed(1), status:s, min:sessionMin[id].toFixed(1), max:sessionMax[id].toFixed(1)});
+    if(historyLog.length>200) historyLog.shift();
+
+    if(s!=='ok'){
+      alertCounts[id]++;
+      alerts.push({
+        level:s, conserv:c.name, time:timeStr, ack:false,
+        msg:`Température ${newT.toFixed(1)}°C ${newT>c.maxT?'au-dessus du max ('+c.maxT+'°C)':'en dessous du min ('+c.minT+'°C)'}`
+      });
+      if(alerts.length>100) alerts.shift();
+    }
+  });
+
+  if(timeLabels.length===0||timeLabels[timeLabels.length-1]!==timeStr){
+    timeLabels.push(timeStr);
+    if(timeLabels.length>100) timeLabels.shift();
+  }
+
+  renderGrids();
+  renderKPIs();
+  renderAlerts();
+  renderHistory();
+  renderStatsTable();
+  updateDashChart();
+  if(document.getElementById('page-stats').classList.contains('active')) initDistCharts();
+}
+
+function showPage(id, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(id==='dashboard'){setTimeout(initDashChart,50);}
+  if(id==='stats'){setTimeout(initDistCharts,50);}
+}
+
+function clearAlerts(){
+  alerts.forEach(a=>a.ack=true);
+  renderAlerts();
+  renderKPIs();
+}
+
+function toggleSim(btn){
+  simActive = btn.classList.toggle('on');
+  if(simActive) startSim(); else {clearInterval(simInterval);simInterval=null;}
+}
+
+function applySettings(){
+  settings.min = parseFloat(document.getElementById('set-min').value);
+  settings.max = parseFloat(document.getElementById('set-max').value);
+  settings.crit = parseFloat(document.getElementById('set-crit').value);
+  const iv = parseInt(document.getElementById('set-interval').value);
+  clearInterval(simInterval);
+  simInterval = setInterval(tick, iv);
+  tick();
+}
+
+function startSim(){
+  clearInterval(simInterval);
+  simInterval = setInterval(tick, 5000);
+  tick();
+}
+
+startSim();
+setTimeout(initDashChart, 100);
+</script>
+</body>
+</html>
